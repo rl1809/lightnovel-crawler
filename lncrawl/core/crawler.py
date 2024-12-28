@@ -44,6 +44,7 @@ class Crawler(Scraper):
         self.novel_title = ""
         self.novel_author = ""
         self.novel_cover = None
+        self.novel_description = ""
         self.is_rtl = False
         self.novel_synopsis = ""
         self.novel_tags = []

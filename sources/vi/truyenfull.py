@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 search_url = "https://truyentr.info/?s=%s"
 
 
-class TruenFull(Crawler):
+class TruyenFull(Crawler):
     has_mtl = True
-    base_url = ["https://truyenfull.vn/", "https://truyentr.info/"]
+    base_url = ["https://truyenfull.io/", "https://truyenfull.tv/"]
 
     @staticmethod
     def __select_value(tag: Tag, css: str, attr: Optional[str] = None):
@@ -69,39 +69,43 @@ class TruenFull(Crawler):
         self.novel_author = ", ".join([x.text for x in authors if isinstance(x, Tag)])
         logger.info("Novel author: %s", self.novel_author)
 
-        if "//truyentr.info/" in self.novel_url:
-            self.parse_truyentr_chapters(soup)
+        description = soup.select_one('div.desc-text.desc-text-full[itemprop="description"]')
+        # Extract text content
+        self.novel_description = description.get_text(strip=True)
+
+        if "//truyenfull.tv/" in self.novel_url:
+            self.parse_truyenfulltv_chapters(soup)
         else:
             self.parse_truyenfull_chapters(soup)
 
-    def parse_truyentr_chapters(self, soup: Tag):
+    def parse_truyenfulltv_chapters(self, soup: Tag):
         total_page = 1
         pagination = soup.select(".pagination li a")
         if len(pagination):
-            last_page_url = str(pagination[-1]["href"])
+            last_page_url = str(pagination[-2]["href"])
             logger.info("Last page url: %s", last_page_url)
-            if "?trang=" in last_page_url:
-                total_page = int(last_page_url.split("trang=")[1])
+            if "trang-" in last_page_url:
+                total_page = int(last_page_url.split('trang-')[1].split('/')[0])
         logger.info("Total page count = %d", total_page)
 
         futures: List[Future] = []
         for page in range(1, total_page):
-            url = self.novel_url + f"?trang={page + 1}"
+            url = self.novel_url + f"/trang-{page + 1}"
             logger.info("Visiting %s", url)
             f = self.executor.submit(self.get_soup, url)
             futures.append(f)
 
-        self.parse_all_links(soup.select(".list-chapters a"))
+        self.parse_all_links(soup.select(".list-chapter a"))
 
         for f in futures:
             soup = f.result()
-            self.parse_all_links(soup.select(".list-chapters a"))
+            self.parse_all_links(soup.select(".list-chapter a"))
 
     def parse_truyenfull_chapters(self, soup: Tag):
         truyen_id = self.__select_value(soup, "input#truyen-id", "value")
         total_page = self.__select_value(soup, "input#total-page", "value")
         truyen_ascii = self.__select_value(soup, "input#truyen-ascii", "value")
-        assert truyen_id, "No truen novel id found"
+        assert truyen_id, "No truyen novel id found"
         total_page = int(str(total_page))
         logger.info("Total page count: %d", total_page)
 
@@ -117,7 +121,7 @@ class TruenFull(Crawler):
                     "totalp": total_page,
                 }
             )
-            url = "https://truyenfull.vn/ajax.php?" + params
+            url = "https://truyenfull.io/ajax.php?" + params
             logger.info("Getting chapters: %s", url)
             f = self.executor.submit(self.get_json, url)
             futures.append(f)
@@ -137,7 +141,7 @@ class TruenFull(Crawler):
                 {
                     "id": chap_id,
                     "volume": vol_id,
-                    "title": a["title"],
+                    "title": " - ".join(a["title"].split("-")[1:]).strip(),
                     "url": self.absolute_url(a["href"]),
                 }
             )

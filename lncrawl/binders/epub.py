@@ -26,6 +26,7 @@ def bind_epub_book(
     output_path: str,
     book_cover: str,
     novel_title: str,
+    novel_description: str,
     novel_url: str,
     novel_synopsis: str,
     novel_tags: list,
@@ -82,6 +83,9 @@ def bind_epub_book(
             <h3>{novel_author}</h3>
         </div>
         <img class="cover" src="{COVER_IMAGE_NAME}">
+        <div class="body">
+           {novel_description}
+        </div>
         <div class="footer">
             <b>Source:</b> <a href="{novel_url}">{novel_url}</a>
             <br>
@@ -128,31 +132,14 @@ def bind_epub_book(
         spine.append(synopsis_item)
     spine.append("nav")
 
-    for chapters in chapter_groups:
-        first_chapter = chapters[0]
-        volume_id = first_chapter.volume
-        volume_title = first_chapter.volume_title or f"Book ${volume_id}"
-        volume_html = f"""
-        <div id="volume">
-            <h1>{volume_title}</h1>
-        </div>
-        """
-        volume_item = epub.EpubHtml(
-            file_name=f"volume_{volume_id}.xhtml",
-            content=volume_html,
-            title=volume_title,
-        )
-        volume_item.add_link(
-            href=style_item.file_name,
-            rel="stylesheet",
-            type="text/css",
-        )
-        book.add_item(volume_item)
-        spine.append(volume_item)
+    # Custom prefix for the TOC
+    toc_title = epub.Section("Danh sách chương", href="nav")
+    toc.append(toc_title)
 
-        volume_contents = []
+    for chapters in chapter_groups:
+        # Add the chapters to the TOC and spine directly
         for chapter in chapters:
-            # ebooklib does pretty-print for xhtml. minify is useless :(
+            # Create each chapter item
             chapter_item = epub.EpubHtml(
                 file_name=f"chapter_{chapter.id}.xhtml",
                 content=str(chapter["body"]),
@@ -165,11 +152,11 @@ def bind_epub_book(
             )
             book.add_item(chapter_item)
             spine.append(chapter_item)
-            volume_contents.append(chapter_item)
 
-        volume_section = epub.Section(volume_title, href=volume_item.file_name)
-        toc.append([volume_section, volume_contents])
+            # Append each chapter directly to the TOC
+            toc.append(chapter_item)
 
+    # Finalize book structure
     book.toc = toc
     book.spine = spine
     book.add_item(epub.EpubNcx())
@@ -233,6 +220,7 @@ def make_epubs(app, data: Dict[str, List[Chapter]]) -> List[str]:
             book_title=book_title,
             novel_title=app.crawler.novel_title,
             novel_author=app.crawler.novel_author or app.crawler.home_url,
+            novel_description = app.crawler.novel_description,
             novel_url=app.crawler.novel_url,
             novel_synopsis=app.crawler.novel_synopsis,
             language=app.crawler.language,

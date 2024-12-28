@@ -21,6 +21,8 @@ from .proxy import get_a_proxy, remove_faulty_proxies
 from .soup import SoupMaker
 from .taskman import TaskManager
 
+import cloudscraper
+
 logger = logging.getLogger(__name__)
 
 
@@ -65,16 +67,17 @@ class Scraper(TaskManager, SoupMaker):
     def init_scraper(self, session: Optional[Session] = None):
         """Check for option: https://github.com/VeNoMouS/cloudscraper"""
         try:
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            self.scraper = CloudScraper.create_scraper(
-                session,
-                # debug=True,
-                # delay=10,
-                ssl_context=ctx,
-                interpreter="js2py",
-            )
+            # ctx = ssl.create_default_context()
+            # ctx.check_hostname = False
+            # ctx.verify_mode = ssl.CERT_NONE
+            self.scraper = cloudscraper.create_scraper()
+            # self.scraper = CloudScraper.create_scraper(
+            #     session,
+            #     # debug=True,
+            #     # delay=10,
+            #     ssl_context=ctx,
+            #     interpreter="js2py",
+            # )
         except Exception:
             logger.exception("Failed to initialize cloudscraper")
             self.scraper = session or Session()
@@ -118,10 +121,10 @@ class Scraper(TaskManager, SoupMaker):
                 )
 
                 with self.domain_gate(_parsed.hostname):
-                    with no_ssl_verification():
-                        response: Response = method_call(url, **kwargs)
-                        response.raise_for_status()
-                        response.encoding = "utf8"
+                    # with no_ssl_verification():
+                    response: Response = method_call(url, **kwargs)
+                        # response.raise_for_status()
+                    response.encoding = "utf8"
 
                 self.cookies.update({x.name: x.value for x in response.cookies})
                 return response
